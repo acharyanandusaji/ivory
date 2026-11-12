@@ -9,7 +9,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'models/*.bin', 'models/*.json', 'ort/*'],
+      includeAssets: ['favicon.svg', 'models/*.bin', 'models/*.json'],
       manifest: {
         name: 'Ivory — Private Photo Curation',
         short_name: 'Ivory',
@@ -29,9 +29,22 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,woff2,svg,png,json,bin,wasm,mjs}'],
+        // ONNX Runtime is only needed for the optional CLIP visual search, so
+        // fetch it on demand instead of blocking the first PWA install with a
+        // ~30 MB download. Core app assets and face models stay precached.
+        globIgnores: ['**/ort/**', '**/ort-wasm*'],
         maximumFileSizeToCacheInBytes: 30 * 1024 * 1024,
         cleanupOutdatedCaches: true,
         runtimeCaching: [
+          {
+            urlPattern: /\/ort-wasm[^/]*\.(?:wasm|mjs)$/i,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'ivory-ort-assets',
+              expiration: { maxEntries: 8, maxAgeSeconds: 60 * 60 * 24 * 365 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
           {
             urlPattern: /^https:\/\/(huggingface\.co|cdn-lfs\.huggingface\.co|cdn-lfs\.hf\.co|cdn\.jsdelivr\.net)\/.*/i,
             handler: 'CacheFirst',
